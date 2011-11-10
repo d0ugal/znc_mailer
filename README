@@ -1,0 +1,7 @@
+ZNC Mailer
+============
+
+A simple ZNC plugin to use the unix mail command to send to the user with
+messages when they are not connected.
+
+Very early work in progress, currently doesn't work.
