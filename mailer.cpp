@@ -4,60 +4,62 @@
 #include <stdlib.h>
 
 #include <Modules.h>
+#include <IRCSock.h>
+#include <User.h>
 #include <Nick.h>
-#include <IRCNetwork.h>
+#include <Chan.h>
 
-class Mailer : public CModule {
+class CMailer : public CModule {
+
+protected:
+    CUser *user;
 
 public:
 
-    MODCONSTRUCTOR(Mailer) {}
-    virtual ~Mailer() {}
-
-    virtual void OnModCommand(const CString& sCommand) {
-        if (sCommand.Token(0).CaseCmp("HELP") == 0) {
-            PutModule("I don't know how to help");
-        } else {
-            PutModule("Unknown command, try HELP");
-        }
+    MODCONSTRUCTOR(CMailer) {
+        user = GetUser();
     }
+
+    virtual ~CMailer() {}
 
     virtual EModRet OnChanMsg(CNick& Nick, CChan& Channel, CString& sMessage) {
 
-        if (m_pNetwork->IsUserAttached()){
+        CString user_nick = user->GetNick().AsLower();
+
+        if (user->IsUserAttached()){
             return CONTINUE;
         }
 
-        size_t found;
-
-        found = sMessage.find("d0ugal");
+        size_t found = sMessage.AsLower().find(user_nick);
 
         if (found!=string::npos){
 
-            FILE *email= popen("mail -s 'IRC Notification' dougal85@gmail.com", "wb");
-            string message = "<" + Nick.GetNick() + ">\n\n" + sMessage;
-            PutModule(message.c_str());
+            PutModule("Sending");
+
+            FILE *email= popen("mail -s 'IRC Notification' dougal85@gmail.com", "w");
+
+            if (!email){
+                PutModule("Problems with pipe");
+                return CONTINUE;
+            }
+
+            CString message = "<" + Nick.GetNick() + "> " + sMessage + "\n\n";
+            PutModule(message);
             fprintf(email, "%s", (char*) message.c_str());
             pclose(email);
+
+            PutModule("Sent");
+
         }
 
         return CONTINUE;
     }
 
-    virtual EModRet OnPrivMsg(CNick& Nick, CString& sMessage) {
+    bool send_notification(){
+        return false;
 
-        if (m_pNetwork->IsUserAttached()){
-            return CONTINUE;
-        }
-
-        FILE *email= popen("mail -s 'IRC Notification' dougal85@gmail.com", "wb");
-        string message = "<" + Nick.GetNick() + ">\n\n" + sMessage;
-        PutModule(message.c_str());
-        fprintf(email, "%s", (char*) message.c_str());
-        pclose(email);
-        return CONTINUE;
     }
 
 };
 
-MODULEDEFS(Mailer, "To be used to send mentions as an email")
+MODULEDEFS(CMailer, "To be used to send mentions as an email")
