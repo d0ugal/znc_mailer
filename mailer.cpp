@@ -1,3 +1,13 @@
+/**
+ * ZNC Mailer Module
+ *
+ * Sends email notifications for user mentions and private messages using the
+ * unix mail command when the user is not attached.
+ *
+ * Copyright (c) 2011 Dougal Matthews
+ * Licensed under the MIT license
+ */
+
 #include <main.h>
 #include <string>
 #include <stdio.h>
