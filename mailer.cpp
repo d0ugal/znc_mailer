@@ -1,8 +1,8 @@
 /**
  * ZNC Mailer Module
  *
- * Sends email notifications for user mentions and private messages using the
- * unix mail command when the user is not attached.
+ * A ZNC Module that uses the Unix mail command to send mentions and private
+ * messages to an email address when you are not connected to ZNC.
  *
  * Copyright (c) 2011 Dougal Matthews
  * Licensed under the MIT license
