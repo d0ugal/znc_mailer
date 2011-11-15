@@ -20,6 +20,7 @@
 #include <Nick.h>
 #include <Chan.h>
 
+
 class CMailerTimer: public CTimer {
 public:
 
@@ -31,28 +32,55 @@ protected:
 
 };
 
+
 class CMailer : public CModule {
 
 protected:
-    CUser *user;
-    list<CString> messages_list;
-    CString notification_subject;
-    CString notification_email;
-    unsigned int max_notifications;
+    CUser *ConnectedUser;
+    list<CString> MessagesList;
+    CString NotificationSubject;
+    CString NotificationEmail;
+    unsigned int MaxNotifications;
+    bool DebugMode;
 
 public:
 
     MODCONSTRUCTOR(CMailer) {
-        user = GetUser();
+        ConnectedUser = GetUser();
+        DebugMode = false;
+        NotificationSubject = "IRC Notification";
     }
 
     virtual ~CMailer() {}
 
+    void DebugPrint(string sMessage){
+        if (DebugMode){
+            PutModule(sMessage);
+        }
+    }
 
     virtual bool OnLoad(const CString& sArgs, CString& sErrorMsg) {
+
         AddTimer(new CMailerTimer(this, 1200, 0, "Mail", "Send emails every 20 mins."));
-        this->max_notifications = 50;
+        MaxNotifications = 50;
+
         PutModule("Please tell me what email address you want notifications to be sent to with 'email <address>'");
+
+        VCString tokens;
+        int token_count = sArgs.Split(" ", tokens, false);
+
+        if (token_count < 1)
+        {
+            return true;
+        }
+
+        CString action = tokens[0].AsLower();
+
+        if (action == "debug"){
+            PutModule("DEBUG ON");
+            DebugMode = true;
+        }
+
         return true;
 
     }
@@ -71,10 +99,6 @@ public:
         return CONTINUE;
     }
 
-    virtual void OnIRCConnected() {
-        PutModule("Connected");
-    }
-
     void OnModCommand(const CString& command)
     {
         VCString tokens;
@@ -91,11 +115,12 @@ public:
 
             if (token_count < 2)
             {
+                PutModule("Email: " + NotificationEmail);
                 PutModule("Usage: email <email address>");
                 return;
             }
 
-            this->notification_email = tokens[1].AsLower();
+            NotificationEmail = tokens[1].AsLower();
 
             PutModule("email address set");
 
@@ -103,21 +128,58 @@ public:
 
             if (token_count < 2)
             {
+                PutModule("Subject: " + NotificationSubject);
                 PutModule("Usage: subject <email subject>");
                 return;
             }
 
-            this->notification_subject = tokens[1].AsLower();
+            NotificationSubject = tokens[1].AsLower();
 
             PutModule("email subject set.");
+
         } else if (action == "help") {
 
-                PutModule("View the documentation at https://github.com/d0ugal/znc_mailer/blob/master/README");
+                PutModule("View the documentation at...");
 
         } else {
 
-            PutModule("Error: invalid command, try `help`");
+            if (!DebugMode){
+                PutModule("Error: invalid command, try `help`");
+            }
 
+        }
+
+        DebugCommands(command);
+
+    }
+
+    void DebugCommands(const CString& command){
+
+        if (!DebugMode){
+            return;
+        }
+
+        VCString tokens;
+        int token_count = command.Split(" ", tokens, false);
+
+        if (token_count < 1)
+        {
+            return;
+        }
+
+        CString action = tokens[0].AsLower();
+
+        if (action == "testemail"){
+
+            CString message;
+            message = "This is a testing email.";
+            Send(message);
+
+        } else if (action == "testfull"){
+
+            CString message = "Testing";
+            MessagesList.push_front(message);
+            BatchSend();
         }
 
     }
@@ -127,10 +189,10 @@ public:
         if (SendNotification(Nick, sMessage) || location == "PRIVATE"){
 
             CString message = "<" + location + ":" + Nick.GetNick() + "> " + sMessage + "\n\n";
-            messages_list.push_front(message);
+            MessagesList.push_front(message);
 
-            if (messages_list.size() > this->max_notifications){
-                messages_list.pop_back();
+            if (MessagesList.size() > MaxNotifications){
+                MessagesList.pop_back();
             }
 
         }
@@ -138,11 +200,12 @@ public:
 
     bool SendNotification(CNick& Nick, CString& sMessage){
 
-        if (user->IsUserAttached()){
+        // Don't send notifications if DebugMode is off and the ConnectedUser is not attached.
+        if (!DebugMode && ConnectedUser->IsUserAttached()){
             return false;
         }
 
-        CString UserNick = user->GetNick().AsLower();
+        CString UserNick = ConnectedUser->GetNick().AsLower();
 
         size_t found = sMessage.AsLower().find(UserNick);
 
@@ -156,7 +219,7 @@ public:
 
     void BatchSend(){
 
-        if (user->IsUserAttached()){
+        if (!DebugMode && ConnectedUser->IsUserAttached()){
             return;
         }
 
@@ -164,35 +227,44 @@ public:
 
         CString message;
 
-        if (messages_list.size() <= 0){
+        if (MessagesList.size() <= 0){
             return;
         }
 
-        for ( it=messages_list.begin() ; it != messages_list.end(); it++ ){
+        for ( it=MessagesList.begin() ; it != MessagesList.end(); it++ ){
             message = message + *it;
         }
 
         Send(message);
 
-        messages_list.erase(messages_list.begin(),messages_list.end());
+        MessagesList.erase(MessagesList.begin(),MessagesList.end());
 
     }
 
     void Send(CString& sMessage){
 
-        PutModule("Sending");
+        CString command;
+        command = "mail -s '" + NotificationSubject + "' " + NotificationEmail;
 
-        FILE *email= popen(("mail -s '" + this->notification_email + "' " + this->notification_subject).c_str(), "w");
+        if (DebugMode){
+            DebugPrint(command);
+        }
+
+        DebugPrint("Sending");
+
+        FILE *email= popen(command.c_str(), "w");
 
         if (!email){
-            PutModule("Problems with pipe");
+            PutModule("Problems with mail command.");
             return;
         }
+
+        DebugPrint(sMessage);
 
         fprintf(email, "%s", (char*) sMessage.c_str());
         pclose(email);
 
-        PutModule("Sent");
+        DebugPrint("Sent");
 
     }
 
