@@ -180,6 +180,20 @@ public:
             CString message = "Testing";
             MessagesList.push_front(message);
             BatchSend();
+        } else if (action == "testshowqueue"){
+
+            list<CString>::iterator it;
+
+            CString message;
+
+            for ( it=MessagesList.begin() ; it != MessagesList.end(); it++ ){
+                DebugPrint(*it);
+            }
+
+        } else if (action == "testbatchsend"){
+
+            BatchSend();
+
         }
 
     }
@@ -190,6 +204,9 @@ public:
 
             CString message = "<" + location + ":" + Nick.GetNick() + "> " + sMessage + "\n\n";
             MessagesList.push_front(message);
+
+            DebugPrint("Added message...");
+            DebugPrint(message);
 
             if (MessagesList.size() > MaxNotifications){
                 MessagesList.pop_back();
@@ -259,11 +276,10 @@ public:
             return;
         }
 
-        DebugPrint(sMessage);
-
         fprintf(email, "%s", (char*) sMessage.c_str());
         pclose(email);
 
+        DebugPrint(sMessage);
         DebugPrint("Sent");
 
     }
