@@ -8,17 +8,17 @@
  * Licensed under the MIT license
  */
 
+#include <Chan.h>
+#include <IRCSock.h>
+#include <list>
 #include <main.h>
-#include <string>
+#include <Modules.h>
+#include <Nick.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <list>
-
-#include <Modules.h>
-#include <IRCSock.h>
+#include <string>
+#include <time.h>
 #include <User.h>
-#include <Nick.h>
-#include <Chan.h>
 
 
 class CMailerTimer: public CTimer {
@@ -177,9 +177,15 @@ public:
 
         } else if (action == "testfull"){
 
-            CString message = "Testing";
+            CString message = "Testing 1";
             MessagesList.push_front(message);
+            CString message2 = "Testing 2";
+            MessagesList.push_front(message2);
+            CString message3 = "Testing 3";
+            MessagesList.push_front(message3);
+
             BatchSend();
+
         } else if (action == "testshowqueue"){
 
             list<CString>::iterator it;
@@ -202,7 +208,18 @@ public:
 
         if (SendNotification(Nick, sMessage) || location == "PRIVATE"){
 
-            CString message = "<" + location + ":" + Nick.GetNick() + "> " + sMessage + "\n\n";
+            CString string_time;
+            time_t rawtime;
+            struct tm * timeinfo;
+            char buffer [80];
+
+            time ( &rawtime );
+            timeinfo = localtime ( &rawtime );
+
+            strftime (buffer,80,"(%x) %X",timeinfo);
+            string_time =  buffer;
+
+            CString message = string_time + ": <" + location + ":" + Nick.GetNick() + "> " + sMessage + "\n";
             MessagesList.push_front(message);
 
             DebugPrint("Added message...");
