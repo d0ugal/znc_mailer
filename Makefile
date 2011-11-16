@@ -5,5 +5,6 @@ clean:
 	-rm -f mailer.so
 
 install:
+	make clean
 	znc-buildmod mailer.cpp
-	mv -i mailer.so ~/.znc/modules
+	cp -i mailer.so ~/.znc/modules

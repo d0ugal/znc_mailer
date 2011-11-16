@@ -61,25 +61,30 @@ public:
 
     virtual bool OnLoad(const CString& sArgs, CString& sErrorMsg) {
 
-        AddTimer(new CMailerTimer(this, 1200, 0, "Mail", "Send emails every 20 mins."));
-        MaxNotifications = 50;
-
-        PutModule("Please tell me what email address you want notifications to be sent to with 'email <address>'");
-
         VCString tokens;
         int token_count = sArgs.Split(" ", tokens, false);
 
-        if (token_count < 1)
-        {
-            return true;
+        if (token_count >= 1){
+
+            CString action = tokens[0].AsLower();
+
+            if (action == "debug"){
+                PutModule("DEBUG ON");
+                DebugMode = true;
+            }
+
         }
 
-        CString action = tokens[0].AsLower();
-
-        if (action == "debug"){
-            PutModule("DEBUG ON");
-            DebugMode = true;
+        // Default to 20 mins, debug to 60 seconds.
+        unsigned int interval = 1200;
+        if (DebugMode){
+            interval = 60;
         }
+
+        AddTimer(new CMailerTimer(this, interval, 0, "Mail", "Send emails every 20 mins"));
+        MaxNotifications = 50;
+
+        PutModule("Please tell me what email address you want notifications to be sent to with 'email <address>'");
 
         return true;
 
@@ -139,7 +144,7 @@ public:
 
         } else if (action == "help") {
 
-                PutModule("View the documentation at...");
+                PutModule("View the documentation at http://znc-mailer.readthedocs.org/");
 
         } else {
 
@@ -220,13 +225,13 @@ public:
             string_time =  buffer;
 
             CString message = string_time + ": <" + location + ":" + Nick.GetNick() + "> " + sMessage + "\n";
-            MessagesList.push_front(message);
+            MessagesList.push_back(message);
 
             DebugPrint("Added message...");
             DebugPrint(message);
 
             if (MessagesList.size() > MaxNotifications){
-                MessagesList.pop_back();
+                MessagesList.pop_front();
             }
 
         }
@@ -253,6 +258,8 @@ public:
 
     void BatchSend(){
 
+        DebugPrint("Preparing to batch send");
+
         if (!DebugMode && ConnectedUser->IsUserAttached()){
             return;
         }
@@ -262,10 +269,11 @@ public:
         CString message;
 
         if (MessagesList.size() <= 0){
+            DebugPrint("No messages");
             return;
         }
 
-        for ( it=MessagesList.end() ; it != MessagesList.begin(); it-- ){
+        for ( it=MessagesList.begin() ; it != MessagesList.end(); it++ ){
             message = message + *it;
         }
 
@@ -275,16 +283,17 @@ public:
 
     }
 
-    void Send(CString& sMessage){
+    void Send(CString sMessage){
+
+        DebugPrint("Preparing to send email.");
+
+        if (NotificationEmail == ""){
+            PutModule("Unable to send email, no address set.");
+            return;
+        }
 
         CString command;
         command = "mail -s '" + NotificationSubject + "' " + NotificationEmail;
-
-        if (DebugMode){
-            DebugPrint(command);
-        }
-
-        DebugPrint("Sending");
 
         FILE *email= popen(command.c_str(), "w");
 
@@ -293,11 +302,16 @@ public:
             return;
         }
 
+        DebugPrint("Opened mail command. About to write message to it.");
+
         fprintf(email, "%s", (char*) sMessage.c_str());
         pclose(email);
 
+        if (DebugMode){
+            DebugPrint(command);
+        }
         DebugPrint(sMessage);
-        DebugPrint("Sent");
+        DebugPrint("...Sent");
 
     }
 
