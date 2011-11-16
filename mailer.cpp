@@ -279,7 +279,7 @@ public:
 
         Send(message);
 
-        MessagesList.erase(MessagesList.begin(),MessagesList.end());
+        MessagesList.clear();
 
     }
 
