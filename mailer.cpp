@@ -248,7 +248,7 @@ public:
             return;
         }
 
-        for ( it=MessagesList.begin() ; it != MessagesList.end(); it++ ){
+        for ( it=MessagesList.end() ; it != MessagesList.begin(); it-- ){
             message = message + *it;
         }
 
