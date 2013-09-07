@@ -6,6 +6,7 @@
  *
  * Copyright (c) 2011 Dougal Matthews
  * Licensed under the MIT license
+ * Edited by Nox (2013)
  */
 
 #include <Chan.h>
@@ -20,6 +21,13 @@
 #include <time.h>
 #include <User.h>
 
+// Convert an int into a string.
+CString intToString (int value) {
+	std::stringstream ss;
+	ss << value;
+	CString sValue = ss.str();
+	return sValue;
+}
 
 // Forward de
 class CMailerTimer: public CTimer {
@@ -49,7 +57,6 @@ public:
     MODCONSTRUCTOR(CMailer) {
         ConnectedUser = GetUser();
         DebugMode = false;
-        NotificationSubject = "IRC Notification";
     }
 
     virtual ~CMailer() {}
@@ -82,16 +89,46 @@ public:
 
         }
 
-        // Default to 20 mins, debug to 60 seconds.
-        unsigned int interval = 1200;
-        if (DebugMode){
-            interval = 60;
+        // Recover config vars.
+        NotificationEmail = GetNV("email");
+        NotificationSubject = GetNV("subject");
+        unsigned int interval = atoi(GetNV("interval").c_str());
+        MaxNotifications = atoi(GetNV("maxNotifications").c_str());
+
+        if (DebugMode) {
+            PutModule("NV: email: " + NotificationEmail);
+            PutModule("NV: subject: " + NotificationSubject);
+            PutModule("NV: interval: " + intToString(interval));
+            PutModule("NV: maxNotifications: " + intToString(MaxNotifications));
         }
 
-        AddTimer(new CMailerTimer(this, interval, 0, "Mail", "Send emails every 20 mins"));
-        MaxNotifications = 50;
+        // Set to default if vars are missing.
+        if (interval <= 0) {
+            // Default to 20 mins, debug to 60 seconds.
+            interval = 1200;
+            if (DebugMode){
+                interval = 60;
+            }
+            SetNV("interval", "1200");
+        }
+        if (MaxNotifications <= 0) {
+            // Default to 50.
+            MaxNotifications = 50;
+            SetNV("maxNotifications", "50");
+        }
+        
 
-        PutModule("Please tell me what email address you want notifications to be sent to with 'email <address>'");
+        AddTimer(new CMailerTimer(this, interval, 0, "Mail", "Send emails every "+intToString(interval)+" mins"));
+
+        if (NotificationSubject == "") {
+            NotificationSubject = "IRC Notification";
+            SetNV("subject", "IRC Notification");
+            PutModule("Default subject : 'IRC Notification' (change whith 'subject <subject>')");
+        }
+
+        if (NotificationEmail == "") {
+            PutModule("Please tell me what email address you want notifications to be sent to with 'email <address>'");
+        }
 
         return true;
 
@@ -134,7 +171,8 @@ public:
 
             NotificationEmail = tokens[1].AsLower();
 
-            PutModule("email address set");
+            SetNV("email", NotificationEmail);
+            PutModule("email address set to : "+ NotificationEmail);
 
         } else if (action == "subject"){
 
@@ -145,12 +183,52 @@ public:
                 return;
             }
 
-            NotificationSubject = tokens[1].AsLower();
+            NotificationSubject = tokens[1];
+            for (int i = 2; i < token_count; i++) {
+                NotificationSubject += " " + tokens[i];
+            }
+            SetNV("subject", NotificationSubject);
+            PutModule("email subject set to : "+ NotificationSubject);
 
-            PutModule("email subject set.");
+        } else if (action == "interval") {
 
+            if (token_count < 2)
+            {
+                PutModule("Interval: " + GetNV("interval"));
+                PutModule("Usage: interval <seconds>");
+                return;
+            }
+
+            SetNV("interval", tokens[1]);
+            PutModule("interval set to : "+ tokens[1] + " , will be effective after reloading mailer : '/msg *status reloadmod mailer'");
+            
+        } else if (action == "notifmax") {
+
+            if (token_count < 2)
+            {
+                PutModule("maxNotifications: " + intToString(MaxNotifications));
+                PutModule("Usage: notifmax <number>");
+                return;
+            }
+
+            MaxNotifications = atoi(tokens[1].c_str());
+
+            SetNV("maxNotifications", tokens[1]);
+            PutModule("maxNotifications set to : "+ tokens[1]);
+            
         } else if (action == "help") {
 
+                PutModule("Commands :");
+                PutModule("  email <email address>");
+                PutModule("       set the email to sent notifications to.");
+                PutModule("  subject <email subject>");
+                PutModule("       set the subject of the notification, default IRC Notification.");
+                PutModule("  interval <seconds>");
+                PutModule("       set the time between the first message and the mail notification, default 1200 (20 minutes).");
+                PutModule("       Reload module required ('/msg *status reloadmod mailer')");
+                PutModule("  notifmax <number>");
+                PutModule("       set the number of notification in one mail, default 50.");
+                PutModule(" ");
                 PutModule("View the documentation at http://znc-mailer.readthedocs.org/");
 
         } else {
